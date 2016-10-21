@@ -144,6 +144,7 @@ public:
 	 * @return A reference to the pointed-to object. Equivalent to `*get()`.
 	 */
 	auto operator*() const {
+		assert(static_cast<bool>(*this));
 		return *(this->get());
 	}
 	
