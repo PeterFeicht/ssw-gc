@@ -1,0 +1,52 @@
+apply plugin: 'cpp'
+apply plugin: 'eclipse'
+
+model {
+    buildTypes {
+        debug
+        release
+    }
+    
+    components {
+        main(NativeLibrarySpec) {
+        	baseName "ManagedHeap"
+        }
+    }
+    
+    binaries {
+        withType(NativeBinarySpec) {
+            if(toolChain in VisualCpp) {
+                // Za - disable extensions
+                // FS - enable concurrent compilation
+                cppCompiler.args "/analyze", "/Za", "/Wall", "/FS"
+                if(buildType == buildTypes.debug) {
+                    cppCompiler.args "/Zi", "/Od"
+                    linker.args "/DEBUG"
+                } else if(buildType == buildTypes.release) {
+                    cppCompiler.args "/Ox"
+                }
+                
+            } else if(toolChain in Gcc) {
+                cppCompiler.args "-std=c++14", "-Wall", "-Wextra", "-pedantic"
+                if(buildType == buildTypes.debug) {
+                    cppCompiler.args "-O0", "-g3"
+                } else if(buildType == buildTypes.release) {
+                    cppCompiler.args "-O3"
+                }
+                
+            } else if(toolChain in Clang) {
+                cppCompiler.args "--analyze", "-std=c++14", "-Wall", "-pedantic"
+                if(buildType == buildTypes.debug) {
+                    cppCompiler.args "-O0", "-g"
+                } else if(buildType == buildTypes.release) {
+                    cppCompiler.args "-O2"
+                }
+            }
+        } // NativeLibraryBinarySpec
+        withType(SharedLibraryBinarySpec) {
+            if(toolChain in VisualCpp) {
+                cppCompiler.define "DLL_EXPORT"
+            }
+        }
+    } // binaries
+}
