@@ -46,7 +46,7 @@ public:
 	 */
 	template <typename T>
 	static TypeDescriptor make(std::initializer_list<std::ptrdiff_t> offsets = {}) {
-		return TypeDescriptor(sizeof(T), [](const void* x) { static_cast<const T*>(x)->~T(); }, offsets);
+		return TypeDescriptor(sizeof(T), [](const void *x) { static_cast<const T*>(x)->~T(); }, offsets);
 	}
 	
 	/**

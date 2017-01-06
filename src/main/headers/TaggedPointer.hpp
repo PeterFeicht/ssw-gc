@@ -48,7 +48,7 @@ public:
 	 * @param ptr The value of the pointer.
 	 * @param mark (optional) Whether the mark should be set, defaults to `false`.
 	 */
-	explicit TaggedPointer(T* ptr, bool mark = false) noexcept
+	explicit TaggedPointer(T *ptr, bool mark = false) noexcept
 			: mPointer(reinterpret_cast<std::uintptr_t>(ptr)) {
 		assert(!(mPointer & sMaskAll));
 		this->mark(mark);
@@ -79,7 +79,7 @@ public:
 	 * @param ptr The value to assign.
 	 * @return A reference to this object.
 	 */
-	TaggedPointer& operator=(T* ptr) noexcept {
+	TaggedPointer& operator=(T *ptr) noexcept {
 		assert(!(mPointer & sMaskAll));
 		mPointer = reinterpret_cast<std::uintptr_t>(ptr);
 		return *this;
