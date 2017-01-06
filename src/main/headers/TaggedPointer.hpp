@@ -16,11 +16,12 @@
 
 namespace ssw {
 
-template <typename T, typename = std::enable_if_t<alignof(T) >= 2>>
+template <typename T, typename = std::enable_if_t<alignof(T) >= 4>>
 class TaggedPointer
 {
 	static constexpr std::uintptr_t sMaskMark{1};
-	static constexpr std::uintptr_t sMaskAll{sMaskMark};
+	static constexpr std::uintptr_t sMaskDestroyed{2};
+	static constexpr std::uintptr_t sMaskAll{sMaskMark | sMaskDestroyed};
 	
 	std::uintptr_t mPointer;
 	
@@ -120,6 +121,31 @@ public:
 	 */
 	bool mark() const noexcept {
 		return (mPointer & sMaskMark);
+	}
+	
+	/**
+	 * Set or clear the destroyed flag.
+	 * 
+	 * @param mark `true` to set the destroyed flag, `false` to clear it.
+	 */
+	void destroyed(bool destroyed) noexcept {
+		if(destroyed) {
+			mPointer |= sMaskDestroyed;
+		} else {
+			mPointer &= ~sMaskDestroyed;
+		}
+	}
+	
+	/**
+	 * Get the destroyed flag.
+	 * 
+	 * Note that this is just a flag and has nothing to do with whether the pointed-to object has been
+	 * destroyed or not. A TaggedPointer will never destroy the pointed-to object.
+	 * 
+	 * @return `true` if the destroyed flag is set, `false` otherwise.
+	 */
+	bool destroyed() const noexcept {
+		return (mPointer & sMaskDestroyed);
 	}
 	
 	/**
