@@ -18,34 +18,35 @@ namespace ssw {
 /**
  * Represents a type descriptor for a managed object.
  * 
- * The type descriptor stores information about the size of objects, and locations of pointers to other
- * managed objects. It allows iteration through pointer offsets using standard {@link begin} and
- * {@link end} iterators.
+ * The type descriptor stores information about the size of objects, a pointer to the destructor, and
+ * locations of pointers to other managed objects. It allows iteration through pointer offsets using
+ * standard {@link begin} and {@link end} iterators.
  */
 class TypeDescriptor
 {
+	using Destructor = void(*)(const void*);
+	
 	const std::size_t mSize;
+	const Destructor mDestructor;
 	const std::vector<std::ptrdiff_t> mOffsets;
+	
+	TypeDescriptor(std::size_t size, Destructor destructor, std::initializer_list<std::ptrdiff_t> offsets)
+			: mSize(size), mDestructor(destructor), mOffsets(offsets) {
+	}
 	
 public:
 	
 	/**
-	 * Create a TypeDescriptor with the specified size and no pointers.
-	 * 
-	 * @param size The size of objects of the described type.
+	 * Create a TypeDescriptor for the specified type with the specified pointer offsets.
+	 *
+	 * @param offsets (optional) The offsets, within `T` objects, of pointers to other managed objects.
+	 * @return A TypeDescriptor.
+	 *
+	 * @tparam T The type to create the descriptor for.
 	 */
-	TypeDescriptor(std::size_t size)
-			: mSize(size), mOffsets() {
-	}
-	
-	/**
-	 * Create a TypeDescriptor with the specified size and pointer offsets.
-	 * 
-	 * @param size The size of objects of the described type.
-	 * @param offsets The offsets within objects of the described type of pointers to other managed objects.
-	 */
-	TypeDescriptor(std::size_t size, std::initializer_list<std::ptrdiff_t> offsets)
-			: mSize(size), mOffsets(offsets) {
+	template <typename T>
+	static TypeDescriptor make(std::initializer_list<std::ptrdiff_t> offsets = {}) {
+		return TypeDescriptor(sizeof(T), [](const void* x) { static_cast<const T*>(x)->~T(); }, offsets);
 	}
 	
 	/**
