@@ -95,6 +95,28 @@ protected:
 	}
 	
 public:
+	
+	/**
+	 * Allocate a block of memory for the specified type.
+	 * 
+	 * @param type Type descriptor for the memory to allocate.
+	 * @return A pointer to the allocated memory block, or `nullptr` if the allocation failed.
+	 */
+	void* allocate(const TypeDescriptor &type) noexcept;
+	
+	/**
+	 * Allocate a block of memory for the specified type.
+	 * 
+	 * @return Pointer to the newly allocated and uninitialized object, or `nullptr` if the allocation
+	 *         failed.
+	 * 
+	 * @tparam The type to allocate memory for, must have a static member variable `type` that holds the
+	 *         type descriptor to use.
+	 */
+	template <typename T>
+	T* allocate() noexcept {
+		return reinterpret_cast<T*>(allocate(T::type));
+	}
 
 	/**
 	 * Dump the contents of this heap to the specified stream.
@@ -122,41 +144,6 @@ public:
 	static constexpr auto size = HeapSize;
 	
 	Heap() noexcept : HeapBase(mStorage, HeapSize + Align, Align) {
-	}
-	
-	/**
-	 * Allocate a block of memory for the specified type.
-	 * 
-	 * @param type Type descriptor for the memory to allocate.
-	 * @return A pointer to the allocated memory block, or `nullptr` if the allocation failed.
-	 */
-	void* allocate(const TypeDescriptor &type) noexcept {
-		if(this->freeList() == nullptr) {
-			// There are no free blocks at all, don't even try
-			return nullptr;
-		}
-		
-		auto result = this->tryAllocate(type);
-		if(!result) {
-			// No sufficiently sized block found using first-fit, merge blocks and try again
-			this->mergeBlocks();
-			result = this->tryAllocate(type);
-		}
-		return result;
-	}
-	
-	/**
-	 * Allocate a block of memory for the specified type.
-	 * 
-	 * @return Pointer to the newly allocated and uninitialized object, or `nullptr` if the allocation
-	 *         failed.
-	 * 
-	 * @tparam The type to allocate memory for, must have a static member variable `type` that holds the
-	 *         type descriptor to use.
-	 */
-	template <typename T>
-	T* allocate() noexcept {
-		return reinterpret_cast<T*>(allocate(T::type));
 	}
 };
 

@@ -62,6 +62,21 @@ HeapBase::HeapBase(byte *storage, std::size_t size, std::size_t align) noexcept
 	new(mFreeList) FreeListNode(size);
 }
 
+void* HeapBase::allocate(const TypeDescriptor &type) noexcept {
+	if(this->freeList() == nullptr) {
+		// There are no free blocks at all, don't even try
+		return nullptr;
+	}
+	
+	auto result = this->tryAllocate(type);
+	if(!result) {
+		// No sufficiently sized block found using first-fit, merge blocks and try again
+		this->mergeBlocks();
+		result = this->tryAllocate(type);
+	}
+	return result;
+}
+
 void* HeapBase::tryAllocate(const TypeDescriptor &type) noexcept {
 	// The minimum size of a block to be split off, including slack
 	const std::size_t MinBlockSize = 2 * sizeof(FreeListNode) + mAlign;
