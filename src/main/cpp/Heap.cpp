@@ -66,11 +66,6 @@ void* HeapBase::tryAllocate(const TypeDescriptor &type) noexcept {
 	// The minimum size of a block to be split off, including slack
 	const std::size_t MinBlockSize = 2 * sizeof(FreeListNode) + mAlign;
 	
-	if(this->freeList() == nullptr) {
-		// There are no free blocks at all, don't even try
-		return nullptr;
-	}
-	
 	FreeListNode *prev = nullptr;
 	auto cur = this->freeList();
 	// Use first-fit method to find a block

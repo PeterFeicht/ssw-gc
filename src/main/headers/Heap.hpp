@@ -131,6 +131,11 @@ public:
 	 * @return A pointer to the allocated memory block, or `nullptr` if the allocation failed.
 	 */
 	void* allocate(const TypeDescriptor &type) noexcept {
+		if(this->freeList() == nullptr) {
+			// There are no free blocks at all, don't even try
+			return nullptr;
+		}
+		
 		auto result = this->tryAllocate(type);
 		if(!result) {
 			// No sufficiently sized block found using first-fit, merge blocks and try again
