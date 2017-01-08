@@ -11,6 +11,7 @@
 
 #include <cstddef>
 #include <ostream>
+#include <vector>
 
 #include "TaggedPointer.hpp"
 #include "TypeDescriptor.hpp"
@@ -27,6 +28,7 @@ class HeapBase
 	
 	byte *mFreeList;
 	const std::size_t mAlign;
+	std::vector<void*> mRoots;
 	
 protected:
 	
@@ -104,13 +106,15 @@ public:
 	 * Allocate a block of memory for the specified type.
 	 * 
 	 * @param type Type descriptor for the memory to allocate.
+	 * @param isRoot (optional) Whether to register the allocated object as a heap root.
 	 * @return A pointer to the allocated memory block, or `nullptr` if the allocation failed.
 	 */
-	void* allocate(const TypeDescriptor &type) noexcept;
+	void* allocate(const TypeDescriptor &type, bool isRoot = false) noexcept;
 	
 	/**
 	 * Allocate a block of memory for the specified type.
 	 * 
+	 * @param isRoot (optional) Whether to register the allocated object as a heap root.
 	 * @return Pointer to the newly allocated and uninitialized object, or `nullptr` if the allocation
 	 *         failed.
 	 * 
@@ -118,8 +122,18 @@ public:
 	 *         type descriptor to use.
 	 */
 	template <typename T>
-	T* allocate() noexcept {
-		return reinterpret_cast<T*>(allocate(T::type));
+	T* allocate(bool isRoot = false) noexcept {
+		assert(T::type.size() >= sizeof(T));
+		return reinterpret_cast<T*>(allocate(T::type, isRoot));
+	}
+	
+	/**
+	 * Register the specified object as a heap root for garbage collection.
+	 * 
+	 * @param object Pointer to the object to register.
+	 */
+	void registerRoot(void *object) {
+		mRoots.push_back(object);
 	}
 
 	/**

@@ -59,7 +59,7 @@ public:
 };
 
 HeapBase::HeapBase(byte *storage, std::size_t size, std::size_t align) noexcept
-		: mFreeList(storage + align), mAlign(align) {
+		: mFreeList(storage + align), mAlign(align), mRoots() {
 	assert(size >= align + sizeof(FreeListNode));
 	// This is probably not strictly necessary, but I don't want to make the offset calculations too complex
 	assert(align >= sizeof(TypePtr) && align >= alignof(TypePtr));
@@ -69,7 +69,7 @@ HeapBase::HeapBase(byte *storage, std::size_t size, std::size_t align) noexcept
 	new(mFreeList) FreeListNode(size);
 }
 
-void* HeapBase::allocate(const TypeDescriptor &type) noexcept {
+void* HeapBase::allocate(const TypeDescriptor &type, bool isRoot) noexcept {
 	if(this->freeList() == nullptr) {
 		// There are no free blocks at all, don't even try
 		return nullptr;
@@ -80,6 +80,9 @@ void* HeapBase::allocate(const TypeDescriptor &type) noexcept {
 		// No sufficiently sized block found using first-fit, merge blocks and try again
 		this->mergeBlocks();
 		result = this->tryAllocate(type);
+	}
+	if(result && isRoot) {
+		this->registerRoot(result);
 	}
 	return result;
 }
