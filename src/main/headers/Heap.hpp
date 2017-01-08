@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <ostream>
 
+#include "TaggedPointer.hpp"
 #include "TypeDescriptor.hpp"
 
 namespace ssw {
@@ -20,6 +21,8 @@ using byte = unsigned char;
 
 class HeapBase
 {
+	using TypePtr = TaggedPointer<const TypeDescriptor>;
+	
 	class FreeListNode;
 	
 	byte *mFreeList;
@@ -85,13 +88,14 @@ protected:
 	}
 	
 	/**
-	 * Get a reference to the type descriptor pointer from an object address.
+	 * Get a reference to the type descriptor pointer from an object address. The type descriptor pointer
+	 * for that address must already have been created before.
 	 * 
 	 * @param ptr The object address (pointer to a managed object).
 	 * @return A reference to the pointer to the type descriptor for the object.
 	 */
-	static const TypeDescriptor*& typeDescriptorPtr(byte *ptr) noexcept {
-		return *reinterpret_cast<const TypeDescriptor**>(ptr - sizeof(TypeDescriptor*));
+	static TypePtr& typeDescriptorPtr(byte *ptr) noexcept {
+		return *reinterpret_cast<TypePtr*>(ptr - sizeof(TypePtr));
 	}
 	
 public:

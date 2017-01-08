@@ -22,8 +22,17 @@ class HeapBase::FreeListNode
 	
 public:
 	
+	/**
+	 * Create a block with the specified size and next pointer, and create an empty type pointer before this
+	 * new node.
+	 * 
+	 * @param size The size of the block.
+	 * @param next (optional) The next block in the free list.
+	 */
 	explicit FreeListNode(std::size_t size, FreeListNode *next = nullptr)
 			: mSize(size), mNext(next) {
+		// A type descriptor pointer of null signals an unused block
+		new(reinterpret_cast<byte*>(this) - sizeof(TypePtr)) TypePtr(nullptr);
 	}
 	
 	void size(std::size_t size) noexcept {
@@ -53,12 +62,10 @@ HeapBase::HeapBase(byte *storage, std::size_t size, std::size_t align) noexcept
 		: mFreeList(storage + align), mAlign(align) {
 	assert(size >= align + sizeof(FreeListNode));
 	// This is probably not strictly necessary, but I don't want to make the offset calculations too complex
-	assert(align >= sizeof(TypeDescriptor*) && align >= alignof(TypeDescriptor*));
+	assert(align >= sizeof(TypePtr) && align >= alignof(TypePtr));
 	assert(align >= alignof(FreeListNode));
 	assert((align & (align - 1)) == 0 /* Alignment must be a power of two */);
 	
-	// A type descriptor pointer of null signals an unused block
-	typeDescriptorPtr(mFreeList) = nullptr;
 	new(mFreeList) FreeListNode(size);
 }
 
@@ -113,8 +120,11 @@ void HeapBase::mergeBlocks() noexcept {
 }
 
 void HeapBase::deallocate(byte *block) noexcept {
-	auto type = std::exchange(typeDescriptorPtr(block), nullptr);
-	assert(type != nullptr /* Tried to deallocate an unused block */);
+	auto type = typeDescriptorPtr(block);
+	assert(type /* Tried to deallocate an unused block */);
+	
+	// new(ptr) FreeListNode(...) creates a new TypePtr, make sure the old one doesn't need destruction
+	static_assert(std::is_trivially_destructible<TypePtr>::value, "TypePtr needs to be destroyed.");
 	
 	this->freeList(new(block) FreeListNode(align(type->size()), this->freeList()));
 }
