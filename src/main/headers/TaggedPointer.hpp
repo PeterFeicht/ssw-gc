@@ -16,7 +16,6 @@
 
 namespace ssw {
 
-template <typename T, typename = std::enable_if_t<alignof(T) >= 4>>
 class TaggedPointer
 {
 	static constexpr std::uintptr_t sMaskMark{1};
@@ -47,7 +46,10 @@ public:
 	 * 
 	 * @param ptr The value of the pointer.
 	 * @param mark (optional) Whether the mark should be set, defaults to `false`.
+	 * 
+	 * @tparam T The type of the pointer being stored.
 	 */
+	template <typename T, typename = std::enable_if_t<alignof(T) >= 4>>
 	explicit TaggedPointer(T *ptr, bool mark = false) noexcept
 			: mPointer(reinterpret_cast<std::uintptr_t>(ptr)) {
 		assert(!(mPointer & sMaskAll));
@@ -78,7 +80,10 @@ public:
 	 * 
 	 * @param ptr The value to assign.
 	 * @return A reference to this object.
+	 * 
+	 * @tparam T The type of the pointer being stored.
 	 */
+	template <typename T, typename = std::enable_if_t<alignof(T) >= 4>>
 	TaggedPointer& operator=(T *ptr) noexcept {
 		assert(!(mPointer & sMaskAll));
 		mPointer = reinterpret_cast<std::uintptr_t>(ptr) | (mPointer & sMaskAll);
@@ -152,7 +157,12 @@ public:
 	 * Get the wrapped pointer value.
 	 * 
 	 * @return The value of this pointer.
+	 * 
+	 * @tparam T The type of the pointer being stored. This must be the same type that was used for the
+	 *           construction of this pointer, or for the most recent assignment, if this pointer was
+	 *           assigned another value since construction.
 	 */
+	template <typename T, typename = std::enable_if_t<alignof(T) >= 4>>
 	T* get() const noexcept {
 		return reinterpret_cast<T*>(mPointer & ~sMaskAll);
 	}
@@ -161,26 +171,7 @@ public:
 	 * Test whether this pointer contains a value (is not `null`).
 	 */
 	explicit operator bool() const noexcept {
-		return this->get() != nullptr;
-	}
-	
-	/**
-	 * Dereference this TaggedPointer. This pointer must contain a value (i.e. must not be `null`).
-	 * 
-	 * @return A reference to the pointed-to object. Equivalent to `*get()`.
-	 */
-	auto operator*() const {
-		assert(static_cast<bool>(*this));
-		return *(this->get());
-	}
-	
-	/**
-	 * Get the wrapped pointer value.
-	 * 
-	 * @return The value of this pointer.
-	 */
-	T* operator->() const noexcept {
-		return this->get();
+		return (mPointer & ~sMaskAll);
 	}
 	
 	/**
@@ -203,8 +194,7 @@ namespace std {
  * @param lhs The first TaggedPointer to swap.
  * @param rhs The other TaggedPointer to swap.
  */
-template <typename T>
-void swap(ssw::TaggedPointer<T> &lhs, ssw::TaggedPointer<T> &rhs) noexcept {
+void swap(ssw::TaggedPointer &lhs, ssw::TaggedPointer &rhs) noexcept {
 	lhs.swap(rhs);
 }
 

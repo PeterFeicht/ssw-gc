@@ -22,7 +22,7 @@ using byte = unsigned char;
 
 class HeapBase
 {
-	using TypePtr = TaggedPointer<const TypeDescriptor>;
+	using TypePtr = TaggedPointer;
 	
 	class FreeListNode;
 	

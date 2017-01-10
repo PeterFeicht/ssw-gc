@@ -130,7 +130,7 @@ void HeapBase::deallocate(byte *block) noexcept {
 	// new(ptr) FreeListNode(...) creates a new TypePtr, make sure the old one doesn't need destruction
 	static_assert(std::is_trivially_destructible<TypePtr>::value, "TypePtr needs to be destroyed.");
 	
-	mFreeList = new(block) FreeListNode(align(type->size()), mFreeList);
+	mFreeList = new(block) FreeListNode(align(type.get<TypeDescriptor>()->size()), mFreeList);
 }
 
 } // namespace ssw
