@@ -102,7 +102,7 @@ public:
 	 * 
 	 * @param object The object to be destroyed.
 	 */
-	void destroy(byte *object) const noexcept {
+	void destroy(void *object) const noexcept {
 		mDestructor(object);
 	}
 };
