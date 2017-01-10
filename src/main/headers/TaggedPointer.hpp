@@ -74,14 +74,14 @@ public:
 	~TaggedPointer() = default;
 	
 	/**
-	 * Assign the specified pointer to this TaggedPointer.
+	 * Assign the specified pointer to this TaggedPointer. The tags are preserved.
 	 * 
 	 * @param ptr The value to assign.
 	 * @return A reference to this object.
 	 */
 	TaggedPointer& operator=(T *ptr) noexcept {
 		assert(!(mPointer & sMaskAll));
-		mPointer = reinterpret_cast<std::uintptr_t>(ptr);
+		mPointer = reinterpret_cast<std::uintptr_t>(ptr) | (mPointer & sMaskAll);
 		return *this;
 	}
 	
