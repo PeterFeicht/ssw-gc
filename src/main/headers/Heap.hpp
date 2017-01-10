@@ -41,47 +41,6 @@ protected:
 	 */
 	HeapBase(byte *storage, std::size_t size, std::size_t align) noexcept;
 	
-	/**
-	 * Try to allocate a block of memory for the specified type.
-	 * 
-	 * @param type Type descriptor for the memory to allocate.
-	 * @return A pointer to the allocated memory block, or `nullptr` if the allocation failed.
-	 */
-	void* tryAllocate(const TypeDescriptor &type) noexcept;
-	
-	/**
-	 * Merge free blocks and build a new free list.
-	 */
-	void mergeBlocks() noexcept;
-	
-	/**
-	 * Deallocate the specified block by putting it back into the free list. No destructors are called.
-	 * 
-	 * @param block Pointer to the block to deallocate.
-	 */
-	void deallocate(byte *block) noexcept;
-	
-	/**
-	 * Align the specified offset to the heap alignment.
-	 * 
-	 * @param offset The offset to align.
-	 * @return The offset aligned to the next larger multiple of this heap's alignment.
-	 */
-	std::size_t align(std::size_t offset) noexcept {
-		return (offset + mAlign - 1) & ~(mAlign - 1);
-	}
-	
-	/**
-	 * Get a reference to the type descriptor pointer from an object address. The type descriptor pointer
-	 * for that address must already have been created before.
-	 * 
-	 * @param ptr The object address (pointer to a managed object).
-	 * @return A reference to the pointer to the type descriptor for the object.
-	 */
-	static TypePtr& typeDescriptorPtr(byte *ptr) noexcept {
-		return *reinterpret_cast<TypePtr*>(ptr - sizeof(TypePtr));
-	}
-	
 public:
 	
 	/**
@@ -110,6 +69,16 @@ public:
 	}
 	
 	/**
+	 * Deallocate the specified block by putting it back into the free list. No destructors are called.
+	 * 
+	 * This function may be used by `operator delete` of managed objects to free memory immediately instead
+	 * of waiting for the next garbage collection. It is not used during garbage collection.
+	 * 
+	 * @param block Pointer to the block to deallocate.
+	 */
+	void deallocate(byte *block) noexcept;
+	
+	/**
 	 * Register the specified object as a heap root for garbage collection.
 	 * 
 	 * @param object Pointer to the object to register.
@@ -126,6 +95,42 @@ public:
 	 * @param os The output stream to write to.
 	 */
 	void dump(std::ostream &os) const;
+	
+private:
+	
+	/**
+	 * Get a reference to the type descriptor pointer from an object address. The type descriptor pointer
+	 * for that address must already have been created before.
+	 * 
+	 * @param ptr The object address (pointer to a managed object).
+	 * @return A reference to the pointer to the type descriptor for the object.
+	 */
+	static TypePtr& typeDescriptorPtr(byte *ptr) noexcept {
+		return *reinterpret_cast<TypePtr*>(ptr - sizeof(TypePtr));
+	}
+	
+	/**
+	 * Try to allocate a block of memory for the specified type.
+	 * 
+	 * @param type Type descriptor for the memory to allocate.
+	 * @return A pointer to the allocated memory block, or `nullptr` if the allocation failed.
+	 */
+	void* tryAllocate(const TypeDescriptor &type) noexcept;
+	
+	/**
+	 * Merge free blocks and build a new free list.
+	 */
+	void mergeBlocks() noexcept;
+	
+	/**
+	 * Align the specified offset to the heap alignment.
+	 * 
+	 * @param offset The offset to align.
+	 * @return The offset aligned to the next larger multiple of this heap's alignment.
+	 */
+	std::size_t align(std::size_t offset) noexcept {
+		return (offset + mAlign - 1) & ~(mAlign - 1);
+	}
 };
 
 template <std::size_t HeapSize, std::size_t Align = alignof(std::max_align_t)>
