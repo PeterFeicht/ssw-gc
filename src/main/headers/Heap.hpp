@@ -28,6 +28,8 @@ class HeapBase
 	
 	FreeListNode *mFreeList;
 	const std::size_t mAlign;
+	byte* const mHeapStart;
+	byte* const mHeapEnd;
 	std::vector<byte*> mRoots;
 	
 protected:
@@ -131,14 +133,21 @@ private:
 	void mergeBlocks() noexcept;
 	
 	/**
-	 * Align the specified offset to the heap alignment.
+	 * Align the specified object size to the heap alignment.
 	 * 
-	 * @param offset The offset to align.
-	 * @return The offset aligned to the next larger multiple of this heap's alignment.
+	 * @param offset The object size to align.
+	 * @return The offset aligned to the next larger multiple of this heap's alignment, or to the minimum
+	 *         block size, whichever is greater.
 	 */
-	std::size_t align(std::size_t offset) noexcept {
-		return (offset + mAlign - 1) & ~(mAlign - 1);
-	}
+	std::size_t align(std::size_t size) const noexcept;
+	
+	/**
+	 * Get address of the block following the specified block.
+	 * 
+	 * @param block The block.
+	 * @return The address of the block following `block`.
+	 */
+	byte* nextBlock(byte *block) const noexcept;
 	
 	/**
 	 * Perform marking for the garbage collector on the specified heap root.

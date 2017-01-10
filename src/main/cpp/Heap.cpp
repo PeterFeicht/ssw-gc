@@ -7,6 +7,7 @@
 
 #include "Heap.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <utility>
 #include <type_traits>
@@ -59,7 +60,8 @@ public:
 };
 
 HeapBase::HeapBase(byte *storage, std::size_t size, std::size_t align) noexcept
-		: mFreeList(reinterpret_cast<FreeListNode*>(storage + align)), mAlign(align), mRoots() {
+		: mFreeList(reinterpret_cast<FreeListNode*>(storage + align)), mAlign(align),
+		  mHeapStart(storage + align), mHeapEnd(storage + (size & ~(align - 1))), mRoots() {
 	assert((reinterpret_cast<std::uintptr_t>(storage) & (align - 1)) == 0);
 	assert(size >= align + sizeof(FreeListNode));
 	// This is probably not strictly necessary, but I don't want to make the offset calculations too complex
@@ -134,6 +136,20 @@ void HeapBase::deallocate(byte *block) noexcept {
 	mFreeList = new(block) FreeListNode(this->align(type.get<TypeDescriptor>()->size()), mFreeList);
 }
 
+std::size_t HeapBase::align(std::size_t offset) const noexcept {
+	auto tmp = std::max(offset, sizeof(FreeListNode));
+	return (tmp + mAlign - 1) & ~(mAlign - 1);
+}
+
+byte* HeapBase::nextBlock(byte *block) const noexcept {
+	const auto &type = typeDescriptorPtr(block);
+	if(type) {
+		return block + this->align(type.get<TypeDescriptor>()->size()) + mAlign;
+	} else {
+		return block + reinterpret_cast<FreeListNode*>(block)->size() + mAlign;
+	}
+}
+
 void HeapBase::gc() noexcept {
 	for(auto root : mRoots) {
 		this->mark(root);
@@ -177,6 +193,34 @@ void HeapBase::mark(byte *root) noexcept {
 			prev = std::exchange(*reinterpret_cast<byte**>(cur + offset), tmp);
 		}
 	} // while(cur)
+}
+
+// Rebuild the free list while destroying garbage objects
+void HeapBase::rebuildFreeList() noexcept {
+	FreeListNode *freeList = nullptr;
+	
+	for(auto it = mHeapStart; it < mHeapEnd;) {
+		auto &type = typeDescriptorPtr(it);
+		if(type.mark()) {
+			type.mark(false);
+			it = this->nextBlock(it);
+			
+		} else {
+			auto free = it;
+			// Extend the free block, destroying garbage objects as necessary
+			do {
+				auto t = typeDescriptorPtr(free);
+				if(t && !t.destroyed()) {
+					t.get<TypeDescriptor>()->destroy(free);
+				}
+				free = this->nextBlock(free);
+			} while(free < mHeapEnd && !typeDescriptorPtr(free).mark());
+			
+			freeList = new(it) FreeListNode(free - it - mAlign, freeList);
+			it = free;
+		}
+	}
+	mFreeList = freeList;
 }
 
 } // namespace ssw
