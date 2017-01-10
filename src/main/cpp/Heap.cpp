@@ -148,7 +148,7 @@ void HeapBase::mark(byte *root) noexcept {
 	
 	byte *cur = root;
 	byte *prev = nullptr;
-	while(cur) {
+	while(true) {
 		auto &type = typeDescriptorPtr(cur);
 		if(!type.mark()) {
 			// Mark the object and begin iteration
@@ -159,7 +159,7 @@ void HeapBase::mark(byte *root) noexcept {
 		}
 		
 		auto offset = *type.get<std::ptrdiff_t>();
-		if(offset > 0) {
+		if(offset >= 0) {
 			// Advance
 			auto &field = *reinterpret_cast<byte**>(cur + offset);
 			if(field && !typeDescriptorPtr(field).mark()) {
@@ -169,6 +169,9 @@ void HeapBase::mark(byte *root) noexcept {
 		} else {
 			// Retreat
 			type = reinterpret_cast<TypeDescriptor*>(reinterpret_cast<byte*>(type.get<std::ptrdiff_t>()) + offset);
+			if(!prev) {
+				return;
+			}
 			auto tmp = std::exchange(cur, prev);
 			offset = *typeDescriptorPtr(cur).get<std::ptrdiff_t>();
 			prev = std::exchange(*reinterpret_cast<byte**>(cur + offset), tmp);
