@@ -96,6 +96,15 @@ public:
 	const std::ptrdiff_t* end() const noexcept {
 		return this->begin() + mOffsets;
 	}
+	
+	/**
+	 * Destroy the specified object.
+	 * 
+	 * @param object The object to be destroyed.
+	 */
+	void destroy(byte *object) const noexcept {
+		mDestructor(object);
+	}
 };
 
 } // namespace ssw
