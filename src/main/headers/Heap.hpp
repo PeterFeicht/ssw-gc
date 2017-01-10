@@ -2,7 +2,7 @@
  * @file    Heap.hpp
  * @author  niob
  * @date    Oct 21, 2016
- * @brief   Declares and defines the {@link Heap} class.
+ * @brief   Declares the {@link Heap} and {@link HeapBase} classes.
  */
 
 #ifndef HEAP_HPP_
@@ -28,7 +28,7 @@ class HeapBase
 	
 	FreeListNode *mFreeList;
 	const std::size_t mAlign;
-	std::vector<void*> mRoots;
+	std::vector<byte*> mRoots;
 	
 protected:
 	
@@ -84,8 +84,16 @@ public:
 	 * @param object Pointer to the object to register.
 	 */
 	void registerRoot(void *object) {
-		mRoots.push_back(object);
+		mRoots.push_back(reinterpret_cast<byte*>(object));
 	}
+	
+	/**
+	 * Run garbage collection on this heap.
+	 * 
+	 * The implemented algorithm is the Deutsch-Schorr-Waite mark and sweep collector, i.e. a non-moving
+	 * collector, which uses the registered heap roots to find living objects.
+	 */
+	void gc() noexcept;
 
 	/**
 	 * Dump the contents of this heap to the specified stream.
@@ -131,6 +139,18 @@ private:
 	std::size_t align(std::size_t offset) noexcept {
 		return (offset + mAlign - 1) & ~(mAlign - 1);
 	}
+	
+	/**
+	 * Perform marking for the garbage collector on the specified heap root.
+	 * 
+	 * @param root Pointer to an object whose object graph should be marked.
+	 */
+	void mark(byte *root) noexcept;
+	
+	/**
+	 * Rebuild the free list with marked objects and destroy unmarked objects.
+	 */
+	void rebuildFreeList() noexcept;
 };
 
 template <std::size_t HeapSize, std::size_t Align = alignof(std::max_align_t)>

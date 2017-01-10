@@ -2,7 +2,7 @@
  * @file    Heap.cpp
  * @author  niob
  * @date    Oct 21, 2016
- * @brief   TODO Defines the {@link Heap} class.
+ * @brief   Defines the {@link Heap} and {@link HeapBase} classes.
  */
 
 #include "Heap.hpp"
@@ -126,11 +126,54 @@ void HeapBase::mergeBlocks() noexcept {
 void HeapBase::deallocate(byte *block) noexcept {
 	auto type = typeDescriptorPtr(block);
 	assert(type /* Tried to deallocate an unused block */);
+	assert(!type.mark() /* Tried to deallocate during garbage collection (GC builds a new free list itself) */);
 	
 	// new(ptr) FreeListNode(...) creates a new TypePtr, make sure the old one doesn't need destruction
 	static_assert(std::is_trivially_destructible<TypePtr>::value, "TypePtr needs to be destroyed.");
 	
 	mFreeList = new(block) FreeListNode(align(type.get<TypeDescriptor>()->size()), mFreeList);
+}
+
+void HeapBase::gc() noexcept {
+	for(auto root : mRoots) {
+		this->mark(root);
+	}
+	this->rebuildFreeList();
+}
+
+// Mark the object graph for the specified heap root object using the Deutsch-Schorr-Waite marking algorithm
+void HeapBase::mark(byte *root) noexcept {
+	assert(root);
+	assert(!typeDescriptorPtr(root).mark());
+	
+	byte *cur = root;
+	byte *prev = nullptr;
+	while(cur) {
+		auto &type = typeDescriptorPtr(cur);
+		if(!type.mark()) {
+			// Mark the object and begin iteration
+			type = type.get<TypeDescriptor>()->begin();
+			type.mark(true);
+		} else {
+			type = type.get<std::ptrdiff_t>() + 1;
+		}
+		
+		auto offset = *type.get<std::ptrdiff_t>();
+		if(offset > 0) {
+			// Advance
+			auto &field = *reinterpret_cast<byte**>(cur + offset);
+			if(field && !typeDescriptorPtr(field).mark()) {
+				auto tmp = std::exchange(field, prev);
+				prev = std::exchange(cur, tmp);
+			}
+		} else {
+			// Retreat
+			type = reinterpret_cast<TypeDescriptor*>(reinterpret_cast<byte*>(type.get<std::ptrdiff_t>()) + offset);
+			auto tmp = std::exchange(cur, prev);
+			offset = *typeDescriptorPtr(cur).get<std::ptrdiff_t>();
+			prev = std::exchange(*reinterpret_cast<byte**>(cur + offset), tmp);
+		}
+	} // while(cur)
 }
 
 } // namespace ssw
