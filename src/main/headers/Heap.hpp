@@ -65,7 +65,7 @@ public:
 	template <typename T>
 	T* allocate(bool isRoot = false) noexcept {
 		assert(T::type.size() >= sizeof(T));
-		return reinterpret_cast<T*>(allocate(T::type, isRoot));
+		return reinterpret_cast<T*>(this->allocate(T::type, isRoot));
 	}
 	
 	/**

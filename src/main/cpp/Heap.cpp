@@ -101,9 +101,9 @@ void* HeapBase::tryAllocate(const TypeDescriptor &type) noexcept {
 	if(cur) {
 		if(cur->size() >= type.size() + MinBlockSize) {
 			// Split off the block to be returned from the front of the current block
-			const auto offset = align(type.size()) + mAlign;
+			const auto offset = this->align(type.size()) + mAlign;
 			cur->next(new(cur->rawPtr() + offset) FreeListNode(cur->size() - offset, cur->next()));
-			cur->size(align(type.size()));
+			cur->size(this->align(type.size()));
 		}
 		if(prev) {
 			prev->next(cur->next());
@@ -131,7 +131,7 @@ void HeapBase::deallocate(byte *block) noexcept {
 	// new(ptr) FreeListNode(...) creates a new TypePtr, make sure the old one doesn't need destruction
 	static_assert(std::is_trivially_destructible<TypePtr>::value, "TypePtr needs to be destroyed.");
 	
-	mFreeList = new(block) FreeListNode(align(type.get<TypeDescriptor>()->size()), mFreeList);
+	mFreeList = new(block) FreeListNode(this->align(type.get<TypeDescriptor>()->size()), mFreeList);
 }
 
 void HeapBase::gc() noexcept {
