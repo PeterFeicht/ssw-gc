@@ -59,7 +59,8 @@ public:
 };
 
 HeapBase::HeapBase(byte *storage, std::size_t size, std::size_t align) noexcept
-		: mFreeList(storage + align), mAlign(align), mRoots() {
+		: mFreeList(reinterpret_cast<FreeListNode*>(storage + align)), mAlign(align), mRoots() {
+	assert((reinterpret_cast<std::uintptr_t>(storage) & (align - 1)) == 0);
 	assert(size >= align + sizeof(FreeListNode));
 	// This is probably not strictly necessary, but I don't want to make the offset calculations too complex
 	assert(align >= sizeof(TypePtr) && align >= alignof(TypePtr));
@@ -70,7 +71,7 @@ HeapBase::HeapBase(byte *storage, std::size_t size, std::size_t align) noexcept
 }
 
 void* HeapBase::allocate(const TypeDescriptor &type, bool isRoot) noexcept {
-	if(this->freeList() == nullptr) {
+	if(mFreeList == nullptr) {
 		// There are no free blocks at all, don't even try
 		return nullptr;
 	}
@@ -92,7 +93,7 @@ void* HeapBase::tryAllocate(const TypeDescriptor &type) noexcept {
 	const std::size_t MinBlockSize = 2 * sizeof(FreeListNode) + mAlign;
 	
 	FreeListNode *prev = nullptr;
-	auto cur = this->freeList();
+	auto cur = mFreeList;
 	// Use first-fit method to find a block
 	while(cur && cur->size() < type.size()) {
 		prev = std::exchange(cur, cur->next());
@@ -107,7 +108,7 @@ void* HeapBase::tryAllocate(const TypeDescriptor &type) noexcept {
 		if(prev) {
 			prev->next(cur->next());
 		} else {
-			this->freeList(cur->next());
+			mFreeList = cur->next();
 		}
 		static_assert(std::is_trivially_destructible<FreeListNode>::value,
 				"FreeListNode needs to be destroyed.");
@@ -129,7 +130,7 @@ void HeapBase::deallocate(byte *block) noexcept {
 	// new(ptr) FreeListNode(...) creates a new TypePtr, make sure the old one doesn't need destruction
 	static_assert(std::is_trivially_destructible<TypePtr>::value, "TypePtr needs to be destroyed.");
 	
-	this->freeList(new(block) FreeListNode(align(type->size()), this->freeList()));
+	mFreeList = new(block) FreeListNode(align(type->size()), mFreeList);
 }
 
 } // namespace ssw

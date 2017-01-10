@@ -26,7 +26,7 @@ class HeapBase
 	
 	class FreeListNode;
 	
-	byte *mFreeList;
+	FreeListNode *mFreeList;
 	const std::size_t mAlign;
 	std::vector<void*> mRoots;
 	
@@ -69,24 +69,6 @@ protected:
 	 */
 	std::size_t align(std::size_t offset) noexcept {
 		return (offset + mAlign - 1) & ~(mAlign - 1);
-	}
-	
-	/**
-	 * Set the head of the free list to the specified value.
-	 * 
-	 * @param newHead Pointer to the new head of the free list.
-	 */
-	void freeList(FreeListNode *newHead) noexcept {
-		mFreeList = reinterpret_cast<byte*>(newHead);
-	}
-	
-	/**
-	 * Get the head of the free list.
-	 * 
-	 * @return Pointer to the first node in the free list, `nullptr` if there are no free blocks.
-	 */
-	FreeListNode* freeList() noexcept {
-		return reinterpret_cast<FreeListNode*>(mFreeList);
 	}
 	
 	/**
