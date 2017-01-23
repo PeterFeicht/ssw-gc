@@ -45,6 +45,11 @@ class TypeDescriptor
 	
 public:
 	
+	TypeDescriptor(const TypeDescriptor&) = delete;
+	TypeDescriptor(TypeDescriptor&&) = delete;
+	TypeDescriptor& operator=(const TypeDescriptor&) = delete;
+	TypeDescriptor& operator=(TypeDescriptor&&) = delete;
+	
 	/**
 	 * Allocate memory for a type descriptor and the specified number of pointer offsets.
 	 * 
