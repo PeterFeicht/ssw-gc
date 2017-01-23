@@ -109,7 +109,9 @@ public:
 	const std::ptrdiff_t* begin() const noexcept;
 	
 	/**
-	 * Get an iterator to the end of the pointer offsets.
+	 * Get an iterator to the end of the pointer offsets. Note that the returned iterator may be safely
+	 * dereferenced, and will yield the offset from its location to the beginning of this object. In other
+	 * words, `this->end() + *this->end() == this`.
 	 * 
 	 * @return A `const` iterator past the last pointer offset.
 	 */
