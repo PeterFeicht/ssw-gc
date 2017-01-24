@@ -16,60 +16,174 @@
 
 namespace ssw {
 
-class HeapBase::FreeListNode
+/**
+ * Represents a block of memory in the heap. This class holds the block size and either a pointer to the
+ * type of the stored object (in case the block is used) or a pointer to the next free block.
+ */
+class alignas(HeapBase::Align) HeapBase::Block
 {
 	std::size_t mSize;
-	FreeListNode *mNext;
+	TaggedPointer mPtr;
 	
 public:
 	
 	/**
-	 * Create a block with the specified size and next pointer, and create an empty type pointer before this
-	 * new node.
+	 * Initialize a new, free block with the specified size.
 	 * 
-	 * @param size The size of the block.
+	 * @param size The usable size of the block (will be properly aligned).
 	 * @param next (optional) The next block in the free list.
 	 */
-	explicit FreeListNode(std::size_t size, FreeListNode *next = nullptr)
-			: mSize(size), mNext(next) {
-		// A type descriptor pointer of null signals an unused block
-		new(reinterpret_cast<byte*>(this) - sizeof(TypePtr)) TypePtr(nullptr);
+	explicit Block(std::size_t size, Block *next = nullptr) noexcept 
+			: mSize(size), mPtr(next) {
+		assert(size >= Align);
+		mPtr.free(true);
 	}
 	
-	void size(std::size_t size) noexcept {
-		assert(size > sizeof(FreeListNode));
-		mSize = size;
-	}
-	
+	/**
+	 * Get the data size of this block.
+	 * 
+	 * @return The usable size of this block, not including the block descriptor.
+	 */
 	auto size() const noexcept {
 		return mSize;
 	}
 	
-	void next(FreeListNode *next) noexcept {
+	/**
+	 * Mark this block as free and set the next block in the free list.
+	 * 
+	 * @param next The next block in the free list, or `nullptr`.
+	 */
+	void next(Block *next) noexcept {
 		assert(next != this);
-		mNext = next;
+		mPtr = next;
+		mPtr.free(true);
 	}
 	
-	auto next() const noexcept {
-		return mNext;
+	/**
+	 * Mark this block as free and set its successor and size.
+	 * 
+	 * @param next The next block in the free list, or `nullptr`.
+	 * @param size The usable size of this block, not including the block descriptor.
+	 */
+	void next(Block *next, std::size_t size) noexcept {
+		this->next(next);
+		assert(size >= Align);
+		mSize = size;
 	}
 	
-	auto rawPtr() noexcept {
-		return reinterpret_cast<byte*>(this);
+	/**
+	 * Get the next block in the free list. This block must represent a free block.
+	 * 
+	 * @return Pointer to the next block in the free list.
+	 */
+	Block* next() const noexcept {
+		assert(this->free() && !this->mark());
+		return mPtr.get<Block>();
+	}
+	
+	/**
+	 * Get a pointer to the block following this block in the heap.
+	 * 
+	 * @return Pointer to the physically next block in the heap.
+	 */
+	Block* following() const noexcept {
+		return reinterpret_cast<Block*>(this->data() + align(mSize));
+	}
+	
+	/**
+	 * Mark this block as used and set the data type.
+	 * 
+	 * @param type The type descriptor for the data in this block.
+	 */
+	void type(const TypeDescriptor &type) noexcept {
+		mPtr = &type;
+		mPtr.free(false);
+	}
+	
+	/**
+	 * Get the data type in this block. This block must represent a used block.
+	 * 
+	 * @return Reference to the type descriptor for the data in this block.
+	 */
+	const TypeDescriptor& type() const noexcept {
+		assert(this->used() && !this->mark());
+		return *mPtr.get<const TypeDescriptor>();
+	}
+	
+	/**
+	 * Get whether this block is free.
+	 * 
+	 * @return `true` if this block is part of the free list and does not hold an object.
+	 */
+	bool free() const noexcept {
+		return mPtr.free();
+	}
+	
+	/**
+	 * Get whether this block is used.
+	 * 
+	 * @return `true` if this block contains an object and is not part of the free list.
+	 */
+	bool used() const noexcept {
+		return mPtr.used();
+	}
+	
+	/**
+	 * Get the GC mark for this block.
+	 * 
+	 * @return `true` if the mark is set, `false` otherwise.
+	 */
+	bool mark() const noexcept {
+		return mPtr.mark();
+	}
+	
+	/**
+	 * Get the pointer in this block.
+	 * 
+	 * @return Reference to the pointer.
+	 */
+	TaggedPointer& ptr() noexcept {
+		return mPtr;
+	}
+	
+	/**
+	 * Get a pointer to the data portion of this block.
+	 * 
+	 * @return Pointer to the data portion of this block.
+	 */
+	byte* data() const noexcept {
+		return const_cast<byte*>(reinterpret_cast<const byte*>(this) + Align);
+	}
+	
+	/**
+	 * Split this block in two blocks if possible. If there is enough space for another block, then this
+	 * block will be resized to the new size and a new block will be added after it; if there is not enough
+	 * space then nothing will be changed. This block must be a free block.
+	 * 
+	 * @param newSize The new size of this block, will be properly aligned.
+	 */
+	void split(std::size_t newSize) noexcept {
+		assert(this->free());
+		const std::size_t restSize = align(mSize) - align(newSize) - Align;
+		if(restSize >= Align) {
+			Block *newBlock = reinterpret_cast<Block*>(reinterpret_cast<byte*>(this) + Align + align(newSize));
+			new(newBlock) Block(restSize, mPtr.get<Block>());
+			mPtr = newBlock;
+		}
 	}
 };
 
 HeapBase::HeapBase(byte *storage, std::size_t size) noexcept
-		: mFreeList(reinterpret_cast<FreeListNode*>(storage + Align)),
-		  mHeapStart(storage + Align), mHeapEnd(storage + (size & ~(Align - 1))), mRoots() {
+		: mFreeList(reinterpret_cast<Block*>(storage)),
+		  mHeapStart(reinterpret_cast<Block*>(storage)),
+		  mHeapEnd(reinterpret_cast<Block*>(storage) + (size & ~(Align - 1))),
+		  mRoots() {
+	static_assert(sizeof(Block) <= Align, "Block class is too large");
+
 	assert((reinterpret_cast<std::uintptr_t>(storage) & (Align - 1)) == 0);
-	assert(size >= Align + sizeof(FreeListNode));
-	// This is probably not strictly necessary, but I don't want to make the offset calculations too complex
-	static_assert(Align >= sizeof(TypePtr) && Align >= alignof(TypePtr), "Alignment too small");
-	static_assert(Align >= alignof(FreeListNode), "Alignment too small");
-	static_assert((Align & (Align - 1)) == 0, "Alignment must be a power of two");
+	assert(size >= 2 * Align);
 	
-	new(mFreeList) FreeListNode(size);
+	new(mFreeList) Block(size);
 }
 
 void* HeapBase::allocate(const TypeDescriptor &type, bool isRoot) noexcept {
@@ -91,32 +205,21 @@ void* HeapBase::allocate(const TypeDescriptor &type, bool isRoot) noexcept {
 }
 
 void* HeapBase::tryAllocate(const TypeDescriptor &type) noexcept {
-	// The minimum size of a block to be split off, including slack
-	const std::size_t MinBlockSize = 2 * sizeof(FreeListNode) + Align;
-	
-	FreeListNode *prev = nullptr;
-	auto cur = mFreeList;
+	Block *prev = nullptr;
+	Block *cur = mFreeList;
 	// Use first-fit method to find a block
 	while(cur && cur->size() < type.size()) {
 		prev = std::exchange(cur, cur->next());
 	}
 	if(cur) {
-		if(cur->size() >= type.size() + MinBlockSize) {
-			// Split off the block to be returned from the front of the current block
-			const auto offset = this->align(type.size()) + Align;
-			cur->next(new(cur->rawPtr() + offset) FreeListNode(cur->size() - offset, cur->next()));
-			cur->size(this->align(type.size()));
-		}
+		cur->split(type.size());
 		if(prev) {
 			prev->next(cur->next());
 		} else {
 			mFreeList = cur->next();
 		}
-		static_assert(std::is_trivially_destructible<FreeListNode>::value,
-				"FreeListNode needs to be destroyed.");
-		
-		typeDescriptorPtr(cur->rawPtr()) = &type;
-		return cur;
+		cur->type(type);
+		return cur->data();
 	}
 	return nullptr;
 }
@@ -125,29 +228,13 @@ void HeapBase::mergeBlocks() noexcept {
 	// TODO implement merging of free blocks
 }
 
-void HeapBase::deallocate(byte *block) noexcept {
-	auto type = typeDescriptorPtr(block);
-	assert(type /* Tried to deallocate an unused block */);
-	assert(!type.mark() /* Tried to deallocate during garbage collection (GC builds a new free list itself) */);
+void HeapBase::deallocate(byte *obj) noexcept {
+	Block &blk = block(obj);
+	assert(blk.used() /* Tried to deallocate an unused block */);
+	assert(!blk.mark() /* Tried to deallocate during garbage collection (GC builds a new free list itself) */);
 	
-	// new(ptr) FreeListNode(...) creates a new TypePtr, make sure the old one doesn't need destruction
-	static_assert(std::is_trivially_destructible<TypePtr>::value, "TypePtr needs to be destroyed.");
-	
-	mFreeList = new(block) FreeListNode(this->align(type.get<TypeDescriptor>()->size()), mFreeList);
-}
-
-std::size_t HeapBase::align(std::size_t offset) const noexcept {
-	auto tmp = std::max(offset, sizeof(FreeListNode));
-	return (tmp + Align - 1) & ~(Align - 1);
-}
-
-byte* HeapBase::nextBlock(byte *block) const noexcept {
-	const auto &type = typeDescriptorPtr(block);
-	if(type) {
-		return block + this->align(type.get<TypeDescriptor>()->size()) + Align;
-	} else {
-		return block + reinterpret_cast<FreeListNode*>(block)->size() + Align;
-	}
+	blk.next(mFreeList);
+	mFreeList = &blk;
 }
 
 void HeapBase::gc() noexcept {
@@ -160,64 +247,65 @@ void HeapBase::gc() noexcept {
 // Mark the object graph for the specified heap root object using the Deutsch-Schorr-Waite marking algorithm
 void HeapBase::mark(byte *root) noexcept {
 	assert(root);
-	assert(!typeDescriptorPtr(root).mark());
+	assert(!block(root).mark());
 	
 	byte *cur = root;
 	byte *prev = nullptr;
 	while(true) {
-		auto &type = typeDescriptorPtr(cur);
-		if(!type.mark()) {
+		auto &blk = block(cur);
+		if(!blk.mark()) {
 			// Mark the object and begin iteration
-			type = type.get<TypeDescriptor>()->begin();
-			type.mark(true);
+			blk.ptr().mark(true);
+			blk.ptr() = blk.type().begin();
 		} else {
-			type = type.get<std::ptrdiff_t>() + 1;
+			blk.ptr() = blk.ptr().get<const std::ptrdiff_t>() + 1;
 		}
 		
-		auto offset = *type.get<std::ptrdiff_t>();
+		auto offset = *blk.ptr().get<const std::ptrdiff_t>();
 		if(offset >= 0) {
 			// Advance
 			auto &field = *reinterpret_cast<byte**>(cur + offset);
-			if(field && !typeDescriptorPtr(field).mark()) {
+			if(field && !block(field).mark()) {
 				auto tmp = std::exchange(field, prev);
 				prev = std::exchange(cur, tmp);
 			}
 		} else {
 			// Retreat
-			type = reinterpret_cast<TypeDescriptor*>(reinterpret_cast<byte*>(type.get<std::ptrdiff_t>()) + offset);
+			blk.ptr() = reinterpret_cast<const TypeDescriptor*>(
+					reinterpret_cast<const byte*>(blk.ptr().get<const std::ptrdiff_t>()) + offset);
 			if(!prev) {
 				return;
 			}
 			auto tmp = std::exchange(cur, prev);
-			offset = *typeDescriptorPtr(cur).get<std::ptrdiff_t>();
+			offset = *block(cur).ptr().get<std::ptrdiff_t>();
 			prev = std::exchange(*reinterpret_cast<byte**>(cur + offset), tmp);
 		}
-	} // while(cur)
+	} // while(true)
 }
 
 // Rebuild the free list while destroying garbage objects
 void HeapBase::rebuildFreeList() noexcept {
-	FreeListNode *freeList = nullptr;
+	Block *freeList = nullptr;
 	
-	for(auto it = mHeapStart; it < mHeapEnd;) {
-		auto &type = typeDescriptorPtr(it);
-		if(type.mark()) {
-			type.mark(false);
-			it = this->nextBlock(it);
+	for(Block *blk = mHeapStart; blk < mHeapEnd;) {
+		if(blk->mark()) {
+			blk->ptr().mark(false);
+			blk = blk->following();
 			
 		} else {
-			auto free = it;
+			auto free = blk;
 			// Extend the free block, destroying garbage objects as necessary
 			do {
-				auto t = typeDescriptorPtr(free);
-				if(t && !t.destroyed()) {
-					t.get<TypeDescriptor>()->destroy(free);
+				if(free->used()) {
+					free->type().destroy(free->data());
 				}
-				free = this->nextBlock(free);
-			} while(free < mHeapEnd && !typeDescriptorPtr(free).mark());
-			
-			freeList = new(it) FreeListNode(free - it - Align, freeList);
-			it = free;
+				free = free->following();
+			} while(free < mHeapEnd && !free->mark());
+
+			static_assert(std::is_trivially_destructible<Block>::value, "Block must be trivially destructible.");
+			blk->next(freeList, reinterpret_cast<byte*>(free) - reinterpret_cast<byte*>(blk) - Align);
+			freeList = blk;
+			blk = free;
 		}
 	}
 	mFreeList = freeList;

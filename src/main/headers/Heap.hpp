@@ -22,15 +22,11 @@ using byte = unsigned char;
 
 class HeapBase
 {
-	using TypePtr = TaggedPointer;
+	class Block;
 	
-	static constexpr std::size_t Align = alignof(std::max_align_t);
-	
-	class FreeListNode;
-	
-	FreeListNode *mFreeList;
-	byte* const mHeapStart;
-	byte* const mHeapEnd;
+	Block *mFreeList;
+	Block* const mHeapStart;
+	Block* const mHeapEnd;
 	std::vector<byte*> mRoots;
 	
 protected:
@@ -44,6 +40,11 @@ protected:
 	HeapBase(byte *storage, std::size_t size) noexcept;
 	
 public:
+
+	/**
+	 * The alignment of memory allocated from this heap.
+	 */
+	static constexpr std::size_t Align = alignof(std::max_align_t);
 	
 	/**
 	 * Allocate a block of memory for the specified type.
@@ -71,14 +72,14 @@ public:
 	}
 	
 	/**
-	 * Deallocate the specified block by putting it back into the free list. No destructors are called.
+	 * Deallocate the specified object by putting it back into the free list. No destructors are called.
 	 * 
 	 * This function may be used by `operator delete` of managed objects to free memory immediately instead
 	 * of waiting for the next garbage collection. It is not used during garbage collection.
 	 * 
-	 * @param block Pointer to the block to deallocate.
+	 * @param block Pointer to the object to deallocate.
 	 */
-	void deallocate(byte *block) noexcept;
+	void deallocate(byte *obj) noexcept;
 	
 	/**
 	 * Register the specified object as a heap root for garbage collection.
@@ -109,14 +110,23 @@ public:
 private:
 	
 	/**
-	 * Get a reference to the type descriptor pointer from an object address. The type descriptor pointer
-	 * for that address must already have been created before.
+	 * Get a reference to the block for an object address.
 	 * 
-	 * @param ptr The object address (pointer to a managed object).
-	 * @return A reference to the pointer to the type descriptor for the object.
+	 * @param ptr The object address (pointer to a managed object; pointer to the block's data portion).
+	 * @return A reference to the block object.
 	 */
-	static TypePtr& typeDescriptorPtr(byte *ptr) noexcept {
-		return *reinterpret_cast<TypePtr*>(ptr - sizeof(TypePtr));
+	static Block& block(byte *ptr) noexcept {
+		return *reinterpret_cast<Block*>(ptr - Align);
+	}
+	
+	/**
+	 * Align the specified object size to the heap alignment.
+	 * 
+	 * @param offset The object size to align.
+	 * @return The offset aligned to the next larger multiple of this heap's alignment.
+	 */
+	static std::size_t align(std::size_t size) noexcept {
+		return (size + Align - 1) & ~(Align - 1);
 	}
 	
 	/**
@@ -131,23 +141,6 @@ private:
 	 * Merge free blocks and build a new free list.
 	 */
 	void mergeBlocks() noexcept;
-	
-	/**
-	 * Align the specified object size to the heap alignment.
-	 * 
-	 * @param offset The object size to align.
-	 * @return The offset aligned to the next larger multiple of this heap's alignment, or to the minimum
-	 *         block size, whichever is greater.
-	 */
-	std::size_t align(std::size_t size) const noexcept;
-	
-	/**
-	 * Get address of the block following the specified block.
-	 * 
-	 * @param block The block.
-	 * @return The address of the block following `block`.
-	 */
-	byte* nextBlock(byte *block) const noexcept;
 	
 	/**
 	 * Perform marking for the garbage collector on the specified heap root.

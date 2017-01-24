@@ -19,8 +19,8 @@ namespace ssw {
 class TaggedPointer
 {
 	static constexpr std::uintptr_t sMaskMark{1};
-	static constexpr std::uintptr_t sMaskDestroyed{2};
-	static constexpr std::uintptr_t sMaskAll{sMaskMark | sMaskDestroyed};
+	static constexpr std::uintptr_t sMaskFree{2};
+	static constexpr std::uintptr_t sMaskAll{sMaskMark | sMaskFree};
 	
 	std::uintptr_t mPointer;
 	
@@ -45,15 +45,15 @@ public:
 	 * Construct a TaggedPointer from the specified pointer.
 	 * 
 	 * @param ptr The value of the pointer.
-	 * @param mark (optional) Whether the mark should be set, defaults to `false`.
+	 * @param free (optional) Whether the free bit should be set, defaults to `false`.
 	 * 
 	 * @tparam T The type of the pointer being stored.
 	 */
 	template <typename T, typename = std::enable_if_t<alignof(T) >= 4>>
-	explicit TaggedPointer(T *ptr, bool mark = false) noexcept
+	explicit TaggedPointer(T *ptr, bool free = false) noexcept
 			: mPointer(reinterpret_cast<std::uintptr_t>(ptr)) {
-		assert(!(mPointer & sMaskAll));
-		this->mark(mark);
+		assert((mPointer & sMaskAll) == 0);
+		this->free(free);
 	}
 	
 	/**
@@ -85,7 +85,7 @@ public:
 	 */
 	template <typename T, typename = std::enable_if_t<alignof(T) >= 4>>
 	TaggedPointer& operator=(T *ptr) noexcept {
-		assert(!(mPointer & sMaskAll));
+		assert((mPointer & sMaskAll) == 0);
 		mPointer = reinterpret_cast<std::uintptr_t>(ptr) | (mPointer & sMaskAll);
 		return *this;
 	}
@@ -129,28 +129,34 @@ public:
 	}
 	
 	/**
-	 * Set or clear the destroyed flag.
+	 * Set or clear the free flag.
 	 * 
-	 * @param mark `true` to set the destroyed flag, `false` to clear it.
+	 * @param mark `true` to set the free flag, `false` to clear it.
 	 */
-	void destroyed(bool destroyed) noexcept {
-		if(destroyed) {
-			mPointer |= sMaskDestroyed;
+	void free(bool free) noexcept {
+		if(free) {
+			mPointer |= sMaskFree;
 		} else {
-			mPointer &= ~sMaskDestroyed;
+			mPointer &= ~sMaskFree;
 		}
 	}
 	
 	/**
-	 * Get the destroyed flag.
+	 * Get the free flag.
 	 * 
-	 * Note that this is just a flag and has nothing to do with whether the pointed-to object has been
-	 * destroyed or not. A TaggedPointer will never destroy the pointed-to object.
-	 * 
-	 * @return `true` if the destroyed flag is set, `false` otherwise.
+	 * @return `true` if the free flag is set, `false` otherwise.
 	 */
-	bool destroyed() const noexcept {
-		return (mPointer & sMaskDestroyed);
+	bool free() const noexcept {
+		return (mPointer & sMaskFree);
+	}
+	
+	/**
+	 * Get the negation of the free flag.
+	 * 
+	 * @return `!this->free()`.
+	 */
+	bool used() const noexcept {
+		return !this->free();
 	}
 	
 	/**
