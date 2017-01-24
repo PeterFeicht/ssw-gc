@@ -59,15 +59,15 @@ public:
 	}
 };
 
-HeapBase::HeapBase(byte *storage, std::size_t size, std::size_t align) noexcept
-		: mFreeList(reinterpret_cast<FreeListNode*>(storage + align)), mAlign(align),
-		  mHeapStart(storage + align), mHeapEnd(storage + (size & ~(align - 1))), mRoots() {
-	assert((reinterpret_cast<std::uintptr_t>(storage) & (align - 1)) == 0);
-	assert(size >= align + sizeof(FreeListNode));
+HeapBase::HeapBase(byte *storage, std::size_t size) noexcept
+		: mFreeList(reinterpret_cast<FreeListNode*>(storage + Align)),
+		  mHeapStart(storage + Align), mHeapEnd(storage + (size & ~(Align - 1))), mRoots() {
+	assert((reinterpret_cast<std::uintptr_t>(storage) & (Align - 1)) == 0);
+	assert(size >= Align + sizeof(FreeListNode));
 	// This is probably not strictly necessary, but I don't want to make the offset calculations too complex
-	assert(align >= sizeof(TypePtr) && align >= alignof(TypePtr));
-	assert(align >= alignof(FreeListNode));
-	assert((align & (align - 1)) == 0 /* Alignment must be a power of two */);
+	static_assert(Align >= sizeof(TypePtr) && Align >= alignof(TypePtr), "Alignment too small");
+	static_assert(Align >= alignof(FreeListNode), "Alignment too small");
+	static_assert((Align & (Align - 1)) == 0, "Alignment must be a power of two");
 	
 	new(mFreeList) FreeListNode(size);
 }
@@ -92,7 +92,7 @@ void* HeapBase::allocate(const TypeDescriptor &type, bool isRoot) noexcept {
 
 void* HeapBase::tryAllocate(const TypeDescriptor &type) noexcept {
 	// The minimum size of a block to be split off, including slack
-	const std::size_t MinBlockSize = 2 * sizeof(FreeListNode) + mAlign;
+	const std::size_t MinBlockSize = 2 * sizeof(FreeListNode) + Align;
 	
 	FreeListNode *prev = nullptr;
 	auto cur = mFreeList;
@@ -103,7 +103,7 @@ void* HeapBase::tryAllocate(const TypeDescriptor &type) noexcept {
 	if(cur) {
 		if(cur->size() >= type.size() + MinBlockSize) {
 			// Split off the block to be returned from the front of the current block
-			const auto offset = this->align(type.size()) + mAlign;
+			const auto offset = this->align(type.size()) + Align;
 			cur->next(new(cur->rawPtr() + offset) FreeListNode(cur->size() - offset, cur->next()));
 			cur->size(this->align(type.size()));
 		}
@@ -138,15 +138,15 @@ void HeapBase::deallocate(byte *block) noexcept {
 
 std::size_t HeapBase::align(std::size_t offset) const noexcept {
 	auto tmp = std::max(offset, sizeof(FreeListNode));
-	return (tmp + mAlign - 1) & ~(mAlign - 1);
+	return (tmp + Align - 1) & ~(Align - 1);
 }
 
 byte* HeapBase::nextBlock(byte *block) const noexcept {
 	const auto &type = typeDescriptorPtr(block);
 	if(type) {
-		return block + this->align(type.get<TypeDescriptor>()->size()) + mAlign;
+		return block + this->align(type.get<TypeDescriptor>()->size()) + Align;
 	} else {
-		return block + reinterpret_cast<FreeListNode*>(block)->size() + mAlign;
+		return block + reinterpret_cast<FreeListNode*>(block)->size() + Align;
 	}
 }
 
@@ -216,7 +216,7 @@ void HeapBase::rebuildFreeList() noexcept {
 				free = this->nextBlock(free);
 			} while(free < mHeapEnd && !typeDescriptorPtr(free).mark());
 			
-			freeList = new(it) FreeListNode(free - it - mAlign, freeList);
+			freeList = new(it) FreeListNode(free - it - Align, freeList);
 			it = free;
 		}
 	}

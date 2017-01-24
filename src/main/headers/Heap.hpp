@@ -24,10 +24,11 @@ class HeapBase
 {
 	using TypePtr = TaggedPointer;
 	
+	static constexpr std::size_t Align = alignof(std::max_align_t);
+	
 	class FreeListNode;
 	
 	FreeListNode *mFreeList;
-	const std::size_t mAlign;
 	byte* const mHeapStart;
 	byte* const mHeapEnd;
 	std::vector<byte*> mRoots;
@@ -35,13 +36,12 @@ class HeapBase
 protected:
 	
 	/**
-	 * Initialize this heap with the specified storage and alignment.
+	 * Initialize this heap with the specified storage.
 	 * 
 	 * @param storage Pointer to the storage to use for objects.
 	 * @param size Raw size of the storage.
-	 * @param align The alignment to use for allocated objects, `storage` must have at least that alignment.
 	 */
-	HeapBase(byte *storage, std::size_t size, std::size_t align) noexcept;
+	HeapBase(byte *storage, std::size_t size) noexcept;
 	
 public:
 	
@@ -162,22 +162,21 @@ private:
 	void rebuildFreeList() noexcept;
 };
 
-template <std::size_t HeapSize, std::size_t Align = alignof(std::max_align_t)>
+template <std::size_t HeapSize>
 class Heap : public HeapBase
 {
+	static constexpr std::size_t Align = alignof(std::max_align_t);
+	
 	// Make storage slightly bigger to allow for type descriptor pointer
 	alignas(Align)
 	byte mStorage[HeapSize + Align];
 	
 public:
 	
-	/** The alignment of this heap. */
-	static constexpr auto alignment = Align;
-	
 	/** The size of this heap. */
 	static constexpr auto size = HeapSize;
 	
-	Heap() noexcept : HeapBase(mStorage, HeapSize + Align, Align) {
+	Heap() noexcept : HeapBase(mStorage, std::extent<decltype(mStorage)>::value) {
 	}
 };
 
