@@ -213,12 +213,25 @@ class Heap : public HeapBase
 	alignas(Align)
 	byte mStorage[HeapSize + Align];
 	
+	Heap() noexcept : HeapBase(mStorage, std::extent<decltype(mStorage)>::value) {
+	}
+	
 public:
 	
 	/** The size of this heap. */
 	static constexpr auto size = HeapSize;
 	
-	Heap() noexcept : HeapBase(mStorage, std::extent<decltype(mStorage)>::value) {
+	static Heap& instance() noexcept {
+		static Heap instance{};
+		return instance;
+	}
+	
+	static void* allocate(const TypeDescriptor &type, bool isRoot = false) noexcept {
+		return instance().HeapBase::allocate(type, isRoot);
+	}
+	
+	static void deallocate(void *obj) noexcept {
+		instance().HeapBase::deallocate(obj);
 	}
 };
 
