@@ -85,7 +85,7 @@ public:
 	 */
 	template <typename T, typename = std::enable_if_t<alignof(T) >= 4>>
 	TaggedPointer& operator=(T *ptr) noexcept {
-		assert((mPointer & sMaskAll) == 0);
+		assert((reinterpret_cast<std::uintptr_t>(ptr) & sMaskAll) == 0);
 		mPointer = reinterpret_cast<std::uintptr_t>(ptr) | (mPointer & sMaskAll);
 		return *this;
 	}
