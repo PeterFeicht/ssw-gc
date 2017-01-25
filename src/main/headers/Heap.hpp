@@ -9,6 +9,7 @@
 #define HEAP_HPP_
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <ostream>
 #include <vector>
@@ -122,7 +123,14 @@ public:
 		mRoots.push_back(reinterpret_cast<byte*>(object));
 	}
 	
-	// TODO Add way to remove heap roots
+	/**
+	 * Remove the specified object as a heap root, if it is registered.
+	 * 
+	 * @param object Pointer to the object to unregister.
+	 */
+	void removeRoot(void *object) {
+		mRoots.erase(std::remove(mRoots.begin(), mRoots.end(), object), mRoots.end());
+	}
 	
 	/**
 	 * Run garbage collection on this heap.
