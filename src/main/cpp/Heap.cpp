@@ -19,6 +19,24 @@
 
 namespace ssw {
 
+namespace {
+
+template <int Width>
+struct FixedWidthSize {
+	std::size_t value;
+	
+	FixedWidthSize(std::size_t value)
+			: value(value) {
+	}
+};
+
+template <int Width>
+std::ostream& operator<<(std::ostream &os, FixedWidthSize<Width> size) {
+	return os << std::setw(Width) << size.value;
+}
+
+}
+
 /**
  * Represents a block of memory in the heap. This class holds the block size and either a pointer to the
  * type of the stored object (in case the block is used) or a pointer to the next free block.
@@ -350,13 +368,14 @@ void HeapBase::dumpLiveObjects(std::ostream &os) {
 	for(auto root : mRoots) {
 		this->mark(root);
 	}
-	os << std::hex;
+	os << std::hex << std::setfill('0');
 	for(auto blk = mHeapStart; blk < mHeapEnd; blk = blk->following()) {
 		if(blk->mark()) {
 			blk->ptr().mark(false);
 			os << static_cast<void*>(blk->data()) << ' ' << "TODO NAME" << '\n';
 			os << "  Data: ";
-			std::copy_n(blk->data(), std::min(blk->type().size(), numDataBytes), std::ostream_iterator<int>(os, " "));
+			std::copy_n(blk->data(), std::min(blk->type().size(), numDataBytes),
+					std::ostream_iterator<FixedWidthSize<2>>(os, " "));
 			if(blk->type().size() > numDataBytes) {
 				os << "...";
 			}
@@ -371,7 +390,7 @@ void HeapBase::dumpLiveObjects(std::ostream &os) {
 			}
 		} // if(blk->mark())
 	}
-	os << std::dec;
+	os << std::dec << std::setfill(' ');
 }
 
 HeapBase::HeapStats HeapBase::collectHeapStats(bool countLiveObjects) noexcept {
