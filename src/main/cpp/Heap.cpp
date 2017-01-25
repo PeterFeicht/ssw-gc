@@ -185,11 +185,13 @@ public:
 	 */
 	void split(std::size_t newSize) noexcept {
 		assert(this->free());
-		const std::size_t restSize = align(mSize) - align(newSize) - Align;
-		if(restSize >= Align) {
-			Block *newBlock = reinterpret_cast<Block*>(reinterpret_cast<byte*>(this) + Align + align(newSize));
-			new(newBlock) Block(restSize, mPtr.get<Block>());
+		
+		const auto alignedSize = align(newSize);
+		if(align(mSize) > alignedSize + 2 * Align) {
+			Block *newBlock = reinterpret_cast<Block*>(reinterpret_cast<byte*>(this) + Align + alignedSize);
+			new(newBlock) Block(align(mSize) - alignedSize - Align, mPtr.get<Block>());
 			mPtr = newBlock;
+			mSize = alignedSize;
 		}
 	}
 };
