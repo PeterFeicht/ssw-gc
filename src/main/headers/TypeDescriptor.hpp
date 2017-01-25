@@ -52,14 +52,14 @@ public:
 	 * Create a TypeDescriptor for the specified type with the specified pointer offsets.
 	 *
 	 * @param offsets (optional) The offsets, within `T` objects, of pointers to other managed objects.
-	 * @return A TypeDescriptor.
+	 * @return A pointer to the created TypeDescriptor.
 	 *
 	 * @tparam T The type to create the descriptor for.
 	 */
 	template <typename T>
-	static std::unique_ptr<TypeDescriptor> make(std::initializer_list<std::ptrdiff_t> offsets = {}) {
-		return std::unique_ptr<TypeDescriptor>{new(offsets.size(), AllocTag{}) TypeDescriptor(
-				sizeof(T), [](const void *x) { static_cast<const T*>(x)->~T(); }, offsets)};
+	static TypeDescriptor* make(std::initializer_list<std::ptrdiff_t> offsets = {}) {
+		return new(offsets.size(), AllocTag{}) TypeDescriptor(
+				sizeof(T), [](const void *x) { static_cast<const T*>(x)->~T(); }, offsets);
 	}
 	
 	/**
