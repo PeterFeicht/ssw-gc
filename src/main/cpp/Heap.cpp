@@ -258,8 +258,8 @@ void HeapBase::mark(byte *root) noexcept {
 		auto &blk = block(cur);
 		if(!blk.mark()) {
 			// Mark the object and begin iteration
-			blk.ptr().mark(true);
 			blk.ptr() = blk.type().begin();
+			blk.ptr().mark(true);
 		} else {
 			blk.ptr() = blk.ptr().get<const std::ptrdiff_t>() + 1;
 		}
@@ -389,13 +389,13 @@ HeapBase::HeapStats HeapBase::collectHeapStats(bool countLiveObjects) noexcept {
 			result.freeBlockSize += blk->size();
 			result.freeSize += Align + align(blk->size());
 		} else {
-			result.numObjects++;
-			result.objectSize += blk->type().size();
 			if(blk->mark()) {
 				blk->ptr().mark(false);
 				result.numLiveObjects++;
 				result.liveObjectSize += blk->type().size();
 			}
+			result.numObjects++;
+			result.objectSize += blk->type().size();
 			result.usedSize += Align + align(blk->size());
 		}
 	}
