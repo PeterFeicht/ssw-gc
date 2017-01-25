@@ -190,20 +190,16 @@ public:
 	}
 };
 
-} // namespace ssw
-
-namespace std {
-
 /**
  * Swap the specified {@link TaggedPointer TaggedPointers}. Calls `lhs.swap(rhs)`.
  * 
  * @param lhs The first TaggedPointer to swap.
  * @param rhs The other TaggedPointer to swap.
  */
-void swap(ssw::TaggedPointer &lhs, ssw::TaggedPointer &rhs) noexcept {
+inline void swap(TaggedPointer &lhs, TaggedPointer &rhs) noexcept {
 	lhs.swap(rhs);
 }
 
-} // namespace std
+} // namespace ssw
 
 #endif /* TAGGEDPOINTER_HPP_ */
