@@ -9,9 +9,12 @@
 
 #include <algorithm>
 #include <cassert>
+#include <iomanip>
+#include <iterator>
 #include <utility>
 #include <type_traits>
 
+#include "RestoreStream.hpp"
 #include "TaggedPointer.hpp"
 
 namespace ssw {
@@ -44,7 +47,7 @@ public:
 	 * 
 	 * @return The usable size of this block, not including the block descriptor.
 	 */
-	auto size() const noexcept {
+	std::size_t size() const noexcept {
 		return mSize;
 	}
 	
@@ -309,6 +312,96 @@ void HeapBase::rebuildFreeList() noexcept {
 		}
 	}
 	mFreeList = freeList;
+}
+
+void HeapBase::dump(std::ostream &os) {
+	RestoreStream osRestore{os};
+	
+	const HeapStats stats = this->collectHeapStats(true);
+	
+	os << "==== Statistics for heap at 0x" << std::hex << mHeapStart << std::dec << " ====\n";
+	os << "Heap size:  " << stats.heapSize << " bytes\n";
+	os << "Used space: " << stats.usedSize << " bytes\n";
+	os << "Free space: " << stats.freeSize << " bytes\n";
+	os << '\n';
+	os << "Object count:    " << stats.numObjects << " (" << stats.numLiveObjects << " live)\n";
+	os << "Object size:     " << stats.objectSize << " bytes (" << stats.liveObjectSize << " in live objects)\n";
+	os << "Available space: " << stats.freeBlockSize << "bytes in " << stats.numFreeBlocks << " blocks\n";
+	os << '\n';
+	os << "= Free Blocks =\nAddress    Size(net)\n";
+	
+	// Print free blocks: just use the free list
+	os.fill('0');
+	for(auto blk = mFreeList; blk; blk = blk->next()) {
+		os << std::hex << "0x" << std::setw(sizeof(void*)) << blk
+				<< ' ' << std::dec << blk->size() << '\n';
+	}
+	os << std::setfill(' ') << '\n';
+	
+	os << "= Live Objects =\n";
+	// For printing live objects we need to do marking
+	this->dumpLiveObjects(os);
+}
+
+void HeapBase::dumpLiveObjects(std::ostream &os) {
+	constexpr std::size_t numDataBytes = 4;
+	static const std::string indent(4, ' ');
+	
+	for(auto root : mRoots) {
+		this->mark(root);
+	}
+	os << std::hex;
+	for(auto blk = mHeapStart; blk < mHeapEnd; blk = blk->following()) {
+		if(blk->mark()) {
+			blk->ptr().mark(false);
+			os << blk->data() << ' ' << "TODO NAME" << '\n';
+			os << "  Data: ";
+			std::copy_n(blk->data(), std::min(blk->type().size(), numDataBytes), std::ostream_iterator<int>(os, " "));
+			if(blk->type().size() > numDataBytes) {
+				os << "...";
+			}
+			os << "\n  Pointers: ";
+			if(blk->type().offsets() > 0) {
+				os << "\n";
+				for(auto offset : blk->type()) {
+					os << indent << *reinterpret_cast<void**>(blk->data() + offset) << '\n';
+				}
+			} else {
+				os << "none\n";
+			}
+		} // if(blk->mark())
+	}
+	os << std::dec;
+}
+
+HeapBase::HeapStats HeapBase::collectHeapStats(bool countLiveObjects) noexcept {
+	HeapStats result{};
+	result.heapSize = reinterpret_cast<byte*>(mHeapEnd) - reinterpret_cast<byte*>(mHeapStart);
+	
+	if(countLiveObjects) {
+		for(auto root : mRoots) {
+			this->mark(root);
+		}
+	}
+	for(auto blk = mHeapStart; blk < mHeapEnd; blk = blk->following()) {
+		if(blk->free()) {
+			result.numFreeBlocks++;
+			result.freeBlockSize += blk->size();
+			result.freeSize += Align + align(blk->size());
+		} else {
+			result.numObjects++;
+			result.objectSize += blk->type().size();
+			if(blk->mark()) {
+				blk->ptr().mark(false);
+				result.numLiveObjects++;
+				result.liveObjectSize += blk->type().size();
+			}
+			result.usedSize += Align + align(blk->size());
+		}
+	}
+	assert(result.freeSize + result.usedSize == result.heapSize);
+	
+	return result;
 }
 
 } // namespace ssw

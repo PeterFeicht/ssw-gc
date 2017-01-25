@@ -31,6 +31,29 @@ class HeapBase
 	
 protected:
 	
+	struct HeapStats {
+		/** Total size of the heap in bytes. */
+		std::size_t heapSize;
+		/** Size of used objects in bytes (including overhead). */
+		std::size_t usedSize;
+		/** Size of free blocks in bytes (including overhead). */
+		std::size_t freeSize;
+		
+		/** The number of blocks in the free list. */
+		std::size_t numFreeBlocks;
+		/** The total size available for objects in all blocks. */
+		std::size_t freeBlockSize;
+		
+		/** The number of objects in the heap (dead or alive). */
+		std::size_t numObjects;
+		/** The net size of all objects (not including overhead). */
+		std::size_t objectSize;
+		/** The number of live objects in the heap. */
+		std::size_t numLiveObjects;
+		/** The net size of live objects (not including overhead). */
+		std::size_t liveObjectSize;
+	};
+	
 	/**
 	 * Initialize this heap with the specified storage.
 	 * 
@@ -38,6 +61,15 @@ protected:
 	 * @param size Raw size of the storage.
 	 */
 	HeapBase(byte *storage, std::size_t size) noexcept;
+	
+	/**
+	 * Collect statistics for this heap.
+	 * 
+	 * @param countLiveObjects (optional) Whether to count live objects (this requires marking the whole
+	 *                         heap so is slower when enabled).
+	 * @return HeapStats object, live object count and size are set to 0 if `countLiveObjects` is `false`.
+	 */
+	HeapStats collectHeapStats(bool countLiveObjects = false) noexcept;
 	
 public:
 
@@ -90,6 +122,8 @@ public:
 		mRoots.push_back(reinterpret_cast<byte*>(object));
 	}
 	
+	// TODO Add way to remove heap roots
+	
 	/**
 	 * Run garbage collection on this heap.
 	 * 
@@ -105,7 +139,7 @@ public:
 	 * 
 	 * @param os The output stream to write to.
 	 */
-	void dump(std::ostream &os) const;
+	void dump(std::ostream &os);
 	
 private:
 	
@@ -153,6 +187,13 @@ private:
 	 * Rebuild the free list with marked objects and destroy unmarked objects.
 	 */
 	void rebuildFreeList() noexcept;
+	
+	/**
+	 * Write a list of live objects to the specified stream.
+	 * 
+	 * @param os The output stream to write to.
+	 */
+	void dumpLiveObjects(std::ostream &os);
 };
 
 template <std::size_t HeapSize>
