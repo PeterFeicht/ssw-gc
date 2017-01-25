@@ -379,7 +379,7 @@ void HeapBase::dumpLiveObjects(std::ostream &os) {
 	for(auto blk = mHeapStart; blk < mHeapEnd; blk = blk->following()) {
 		if(blk->mark()) {
 			blk->ptr().mark(false);
-			os << static_cast<void*>(blk->data()) << ' ' << "TODO NAME" << '\n';
+			os << static_cast<void*>(blk->data()) << ' ' << blk->type().name() << '\n';
 			os << "  Data: ";
 			std::copy_n(blk->data(), std::min(blk->type().size(), numDataBytes),
 					std::ostream_iterator<FixedWidthSize<2>>(os, " "));

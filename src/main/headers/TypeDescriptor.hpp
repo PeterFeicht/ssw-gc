@@ -12,6 +12,9 @@
 #include <cstddef>
 #include <initializer_list>
 #include <memory>
+#include <string>
+
+#include <boost/type_index.hpp>
 
 namespace ssw {
 
@@ -32,11 +35,13 @@ class TypeDescriptor
 	
 	class AllocTag {};
 	
+	const std::string mName;
 	const std::size_t mSize;
 	const Destructor mDestructor;
 	const std::size_t mOffsets;
 	
-	TypeDescriptor(std::size_t size, Destructor destructor, std::initializer_list<std::ptrdiff_t> offsets);
+	TypeDescriptor(std::string name, std::size_t size, Destructor destructor,
+			std::initializer_list<std::ptrdiff_t> offsets);
 	
 public:
 	
@@ -59,7 +64,15 @@ public:
 	template <typename T>
 	static TypeDescriptor* make(std::initializer_list<std::ptrdiff_t> offsets = {}) {
 		return new(offsets.size(), AllocTag{}) TypeDescriptor(
+				boost::typeindex::type_id<T>().pretty_name(),
 				sizeof(T), [](const void *x) { static_cast<const T*>(x)->~T(); }, offsets);
+	}
+	
+	/**
+	 * Get the name of the described type.
+	 */
+	const std::string& name() const noexcept {
+		return mName;
 	}
 	
 	/**

@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cassert>
 #include <type_traits>
+#include <utility>
 
 namespace ssw {
 
@@ -29,8 +30,9 @@ void* TypeDescriptor::operator new(std::size_t size, std::size_t offsets, AllocT
 	return ::operator new(ListOffset + sizeof(std::ptrdiff_t) * (offsets + 1));
 }
 
-TypeDescriptor::TypeDescriptor(std::size_t size, Destructor destructor, std::initializer_list<std::ptrdiff_t> offsets)
-		: mSize(size), mDestructor(destructor), mOffsets(offsets.size()) {
+TypeDescriptor::TypeDescriptor(std::string name, std::size_t size, Destructor destructor,
+		std::initializer_list<std::ptrdiff_t> offsets)
+		: mName(std::move(name)), mSize(size), mDestructor(destructor), mOffsets(offsets.size()) {
 	std::copy(offsets.begin(), offsets.end(), const_cast<std::ptrdiff_t*>(this->begin()));
 	*const_cast<std::ptrdiff_t*>(this->end()) =
 			reinterpret_cast<const char*>(this) - reinterpret_cast<const char*>(this->end());
