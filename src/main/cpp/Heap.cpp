@@ -319,21 +319,21 @@ void HeapBase::dump(std::ostream &os) {
 	
 	const HeapStats stats = this->collectHeapStats(true);
 	
-	os << "==== Statistics for heap at 0x" << std::hex << mHeapStart << std::dec << " ====\n";
+	os << "==== Statistics for heap at " << std::hex << mHeapStart << std::dec << " ====\n";
 	os << "Heap size:  " << stats.heapSize << " bytes\n";
 	os << "Used space: " << stats.usedSize << " bytes\n";
 	os << "Free space: " << stats.freeSize << " bytes\n";
 	os << '\n';
 	os << "Object count:    " << stats.numObjects << " (" << stats.numLiveObjects << " live)\n";
 	os << "Object size:     " << stats.objectSize << " bytes (" << stats.liveObjectSize << " in live objects)\n";
-	os << "Available space: " << stats.freeBlockSize << "bytes in " << stats.numFreeBlocks << " blocks\n";
+	os << "Available space: " << stats.freeBlockSize << " bytes in " << stats.numFreeBlocks << " blocks\n";
 	os << '\n';
 	os << "= Free Blocks =\nAddress    Size(net)\n";
 	
 	// Print free blocks: just use the free list
 	os.fill('0');
 	for(auto blk = mFreeList; blk; blk = blk->next()) {
-		os << std::hex << "0x" << std::setw(sizeof(void*)) << blk
+		os << std::hex << std::setw(sizeof(void*)) << blk
 				<< ' ' << std::dec << blk->size() << '\n';
 	}
 	os << std::setfill(' ') << '\n';
@@ -354,7 +354,7 @@ void HeapBase::dumpLiveObjects(std::ostream &os) {
 	for(auto blk = mHeapStart; blk < mHeapEnd; blk = blk->following()) {
 		if(blk->mark()) {
 			blk->ptr().mark(false);
-			os << blk->data() << ' ' << "TODO NAME" << '\n';
+			os << static_cast<void*>(blk->data()) << ' ' << "TODO NAME" << '\n';
 			os << "  Data: ";
 			std::copy_n(blk->data(), std::min(blk->type().size(), numDataBytes), std::ostream_iterator<int>(os, " "));
 			if(blk->type().size() > numDataBytes) {
