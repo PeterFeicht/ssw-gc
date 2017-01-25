@@ -359,8 +359,13 @@ void HeapBase::dump(std::ostream &os) {
 	os << std::setfill(' ') << '\n';
 	
 	os << "= Live Objects =\n";
-	// For printing live objects we need to do marking
-	this->dumpLiveObjects(os);
+	if(stats.numLiveObjects) {
+		// For printing live objects we need to do marking
+		this->dumpLiveObjects(os);
+	} else {
+		os << "  none\n";
+	}
+	os << '\n';
 }
 
 void HeapBase::dumpLiveObjects(std::ostream &os) {
