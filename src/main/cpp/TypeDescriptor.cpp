@@ -24,7 +24,7 @@ constexpr std::size_t ListOffset =
 
 }
 
-void* TypeDescriptor::operator new(std::size_t size, std::size_t offsets) {
+void* TypeDescriptor::operator new(std::size_t size, std::size_t offsets, AllocTag) {
 	assert(size <= ListOffset);
 	return ::operator new(ListOffset + sizeof(std::ptrdiff_t) * (offsets + 1));
 }

@@ -30,6 +30,8 @@ class TypeDescriptor
 {
 	using Destructor = void(*)(const void*);
 	
+	class AllocTag {};
+	
 	const std::size_t mSize;
 	const Destructor mDestructor;
 	const std::size_t mOffsets;
@@ -44,7 +46,7 @@ public:
 	 * @param size The size of the TypeDescriptor object.
 	 * @param offsets The number of pointer offsets to be placed after the object.
 	 */
-	void* operator new(std::size_t size, std::size_t offsets);
+	void* operator new(std::size_t size, std::size_t offsets, AllocTag);
 	
 	/**
 	 * Create a TypeDescriptor for the specified type with the specified pointer offsets.
@@ -56,8 +58,8 @@ public:
 	 */
 	template <typename T>
 	static std::unique_ptr<TypeDescriptor> make(std::initializer_list<std::ptrdiff_t> offsets = {}) {
-		return new(offsets.size()) TypeDescriptor(
-				sizeof(T), [](const void *x) { static_cast<const T*>(x)->~T(); }, offsets);
+		return std::unique_ptr<TypeDescriptor>{new(offsets.size(), AllocTag{}) TypeDescriptor(
+				sizeof(T), [](const void *x) { static_cast<const T*>(x)->~T(); }, offsets)};
 	}
 	
 	/**
