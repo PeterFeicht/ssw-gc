@@ -11,14 +11,22 @@ model {
         main(NativeLibrarySpec) {
         	baseName "ManagedHeap"
         }
+        
+        test(NativeExecutableSpec) {
+            sources {
+                cpp.lib library: "main", linkage: "static"
+            }
+        }
     }
     
     binaries {
         withType(NativeBinarySpec) {
             if(toolChain in VisualCpp) {
-                // Za - disable extensions
-                // FS - enable concurrent compilation
-                cppCompiler.args "/analyze", "/Za", "/Wall", "/FS"
+                // Za  - disable extensions
+                // FS  - enable concurrent compilation
+                // GR- - disable RTTI
+                cppCompiler.args "/analyze", "/Za", "/W4", "/FS"
+                cppCompiler.args "/GR-"
                 if(buildType == buildTypes.debug) {
                     cppCompiler.args "/Zi", "/Od"
                     linker.args "/DEBUG"
@@ -28,6 +36,7 @@ model {
                 
             } else if(toolChain in Gcc) {
                 cppCompiler.args "-std=c++14", "-Wall", "-Wextra", "-pedantic"
+                cppCompiler.args "-fno-rtti"
                 if(buildType == buildTypes.debug) {
                     cppCompiler.args "-O0", "-g3"
                 } else if(buildType == buildTypes.release) {
@@ -36,6 +45,7 @@ model {
                 
             } else if(toolChain in Clang) {
                 cppCompiler.args "--analyze", "-std=c++14", "-Wall", "-pedantic"
+                cppCompiler.args "-fno-rtti"
                 if(buildType == buildTypes.debug) {
                     cppCompiler.args "-O0", "-g"
                 } else if(buildType == buildTypes.release) {
