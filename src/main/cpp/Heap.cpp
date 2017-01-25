@@ -179,14 +179,14 @@ public:
 HeapBase::HeapBase(byte *storage, std::size_t size) noexcept
 		: mFreeList(reinterpret_cast<Block*>(storage)),
 		  mHeapStart(reinterpret_cast<Block*>(storage)),
-		  mHeapEnd(reinterpret_cast<Block*>(storage) + (size & ~(Align - 1))),
+		  mHeapEnd(reinterpret_cast<Block*>(storage + (size & ~(Align - 1)))),
 		  mRoots() {
 	static_assert(sizeof(Block) <= Align, "Block class is too large");
 
 	assert((reinterpret_cast<std::uintptr_t>(storage) & (Align - 1)) == 0);
 	assert(size >= 2 * Align);
 	
-	new(mFreeList) Block(size);
+	new(mFreeList) Block(size - Align);
 }
 
 void* HeapBase::allocate(const TypeDescriptor &type, bool isRoot) noexcept {
