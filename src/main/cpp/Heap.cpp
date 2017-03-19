@@ -35,7 +35,7 @@ std::ostream& operator<<(std::ostream &os, FixedWidthSize<Width> size) {
 	return os << std::setw(Width) << size.value;
 }
 
-}
+} // namespace
 
 /**
  * Represents a block of memory in the heap. This class holds the block size and either a pointer to the
@@ -194,7 +194,7 @@ public:
 			mSize = alignedSize;
 		}
 	}
-};
+}; // class HeapBase::Block
 
 HeapBase::HeapBase(byte *storage, std::size_t size) noexcept
 		: mFreeList(reinterpret_cast<Block*>(storage)),

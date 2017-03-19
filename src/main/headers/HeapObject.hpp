@@ -15,9 +15,8 @@
 namespace ssw {
 
 template <typename T, typename Heap>
-class HeapObject
+struct HeapObject
 {
-public:
 	static void* operator new(size_t size, bool isRoot = false) {
 		// `new` might allocate more bytes for alignment, it should never allocate less than the type
 		// descriptor says (which would mean the type descriptor is wrong)
@@ -33,7 +32,7 @@ public:
 	static void operator delete(void* obj) {
 		Heap::deallocate(obj);
 	}
-};
+}; // class HeapObject
 
 } // namespace ssw
 

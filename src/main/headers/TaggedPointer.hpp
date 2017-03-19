@@ -25,6 +25,7 @@ class TaggedPointer
 	std::uintptr_t mPointer;
 	
 public:
+	
 	/**
 	 * Default construct a TaggedPointer with a null pointer.
 	 */
@@ -188,7 +189,7 @@ public:
 	void swap(TaggedPointer &other) noexcept {
 		std::swap(mPointer, other.mPointer);
 	}
-};
+}; // class TaggedPointer
 
 /**
  * Swap the specified {@link TaggedPointer TaggedPointers}. Calls `lhs.swap(rhs)`.

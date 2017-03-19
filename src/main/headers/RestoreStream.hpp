@@ -61,7 +61,7 @@ public:
 	auto precision() const noexcept {
 		return mPrecision;
 	}
-};
+}; // class RestoreStream
 
 } // namespace ssw
 

@@ -202,7 +202,7 @@ private:
 	 * @param os The output stream to write to.
 	 */
 	void dumpLiveObjects(std::ostream &os);
-};
+}; // class HeapBase
 
 template <std::size_t HeapSize>
 class Heap : public HeapBase
@@ -233,7 +233,7 @@ public:
 	static void deallocate(void *obj) noexcept {
 		instance().HeapBase::deallocate(obj);
 	}
-};
+}; // class Heap
 
 } // namespace ssw
 

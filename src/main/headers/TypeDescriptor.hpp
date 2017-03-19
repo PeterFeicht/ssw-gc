@@ -120,7 +120,7 @@ public:
 	void destroy(void *object) const noexcept {
 		mDestructor(object);
 	}
-};
+}; // class TypeDescriptor
 
 } // namespace ssw
 

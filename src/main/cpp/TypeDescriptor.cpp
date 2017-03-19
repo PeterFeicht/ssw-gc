@@ -23,7 +23,7 @@ namespace {
 constexpr std::size_t ListOffset =
 		(sizeof(TypeDescriptor) + alignof(std::ptrdiff_t) - 1) & ~(alignof(std::ptrdiff_t) - 1);
 
-}
+} // namespace
 
 void* TypeDescriptor::operator new(std::size_t size, std::size_t offsets, AllocTag) {
 	assert(size <= ListOffset);
